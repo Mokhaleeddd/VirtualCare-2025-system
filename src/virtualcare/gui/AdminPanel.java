@@ -145,7 +145,20 @@ public class AdminPanel extends JPanel {
 
                     String adminID = JOptionPane.showInputDialog(this, "Enter Admin ID:");
                     if (adminID != null && !adminID.isEmpty()) {
-                        admin = new Admin(adminID, "Admin");
+                        // Prompt for password
+                        JPasswordField adminPasswordField = new JPasswordField();
+                        int passwordOption = JOptionPane.showConfirmDialog(
+                            this,
+                            new Object[]{"Set Password:", adminPasswordField},
+                            "Set Admin Password",
+                            JOptionPane.OK_CANCEL_OPTION,
+                            JOptionPane.PLAIN_MESSAGE
+                        );
+                        String adminPassword = "";
+                        if (passwordOption == JOptionPane.OK_OPTION) {
+                            adminPassword = new String(adminPasswordField.getPassword());
+                        }
+                        admin = new Admin(adminID, "Admin", adminPassword);
                         dataManager.saveAdmin(admin);
                         adminCombo.addItem(admin);
                         adminCombo.setSelectedItem(admin);
@@ -157,6 +170,25 @@ public class AdminPanel extends JPanel {
                 String specialty = (String) specialtyField.getSelectedItem();
                 if (!providerNameField.getText().isEmpty() && specialty != null) {
                     String providerID = dataManager.generateProviderID();
+                    
+                    // Prompt for password
+                    JPasswordField passwordField = new JPasswordField();
+                    int option = JOptionPane.showConfirmDialog(
+                        this,
+                        new Object[]{"Password:", passwordField},
+                        "Set Provider Password",
+                        JOptionPane.OK_CANCEL_OPTION,
+                        JOptionPane.PLAIN_MESSAGE
+                    );
+                    
+                    String password = "";
+                    if (option == JOptionPane.OK_OPTION) {
+                        password = new String(passwordField.getPassword());
+                        if (password.isEmpty()) {
+                            password = ""; // Allow empty password for backward compatibility
+                        }
+                    }
+                    
                     admin.createProviderAccount(
                         providerID,
                         providerNameField.getText(),
@@ -167,7 +199,8 @@ public class AdminPanel extends JPanel {
                         providerID,
                         providerNameField.getText(),
                         specialty,
-                        availabilityField.getText()
+                        availabilityField.getText(),
+                        password
                     );
                     provider.setManagedBy(admin);
                     dataManager.saveProvider(provider);

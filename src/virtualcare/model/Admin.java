@@ -13,6 +13,11 @@ public class Admin extends User implements Serializable {
         this.managedProviders = new ArrayList<>();
     }
 
+    public Admin(String adminID, String name, String password) {
+        super(adminID, name, password);
+        this.managedProviders = new ArrayList<>();
+    }
+
     public void createProviderAccount(String providerID, String name, String specialty, String availability) {
         Provider provider = new Provider(providerID, name, specialty, availability);
         managedProviders.add(provider);

@@ -20,6 +20,14 @@ public class Patient extends User implements Serializable {
         this.feedbacks = new ArrayList<>();
     }
 
+    public Patient(String patientID, String name, String contactInfo, String medicalHistory, String password) {
+        super(patientID, name, password);
+        this.contactInfo = contactInfo;
+        this.medicalHistory = medicalHistory;
+        this.appointments = new ArrayList<>();
+        this.feedbacks = new ArrayList<>();
+    }
+
     public void register() {
         System.out.println("Patient " + this.name + " has registered.");
     }

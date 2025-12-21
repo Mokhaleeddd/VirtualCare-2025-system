@@ -2,6 +2,7 @@ package virtualcare.gui;
 
 import virtualcare.model.*;
 import virtualcare.service.DataManager;
+import virtualcare.service.AuthenticationService;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -13,6 +14,8 @@ import java.util.List;
 
 public class PatientPanel extends JPanel {
     private DataManager dataManager;
+    private AuthenticationService authService;
+    private Patient currentPatient;
     private JTable patientTable;
     private DefaultTableModel tableModel;
     private JTextField nameField, contactField;
@@ -21,41 +24,78 @@ public class PatientPanel extends JPanel {
     private JComboBox<Integer> ratingField;
     private JTextArea commentField;
 
-    public PatientPanel(DataManager dataManager) {
+    public PatientPanel(DataManager dataManager, AuthenticationService authService) {
         this.dataManager = dataManager;
+        this.authService = authService;
+        loadCurrentPatient();
         initializePanel();
+    }
+    
+    /**
+     * Refreshes the panel - reloads patient data and reinitializes UI
+     * Call this when switching to this panel after login
+     */
+    public void refreshPanel() {
+        removeAll();
+        loadCurrentPatient();
+        initializePanel();
+        revalidate();
+        repaint();
+    }
+    
+    /**
+     * Loads the currently logged-in patient
+     */
+    private void loadCurrentPatient() {
+        User currentUser = authService.getCurrentUser();
+        if (currentUser instanceof Patient) {
+            this.currentPatient = (Patient) currentUser;
+        } else {
+            this.currentPatient = null;
+        }
+    }
+    
+    /**
+     * Checks if current patient is authenticated
+     */
+    private boolean isAuthenticated() {
+        // Reload current patient to ensure we have the latest authentication state
+        loadCurrentPatient();
+        return currentPatient != null;
     }
 
     private void initializePanel() {
         setLayout(new BorderLayout());
 
+        // Reload current patient in case panel was created before login
+        loadCurrentPatient();
 
-        JLabel titleLabel = new JLabel("Patient Interface", JLabel.CENTER);
+        // Check authentication
+        if (!isAuthenticated()) {
+            JLabel errorLabel = new JLabel("Please login as a patient to access this panel.", JLabel.CENTER);
+            errorLabel.setFont(new Font("Arial", Font.BOLD, 16));
+            errorLabel.setForeground(Color.RED);
+            add(errorLabel, BorderLayout.CENTER);
+            return;
+        }
+
+        // Welcome label with patient name
+        String welcomeText = "Welcome, " + currentPatient.getName() + " (ID: " + currentPatient.getUserID() + ")";
+        JLabel titleLabel = new JLabel(welcomeText, JLabel.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
         titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         add(titleLabel, BorderLayout.NORTH);
 
-
         JTabbedPane tabbedPane = new JTabbedPane();
 
-
-        tabbedPane.addTab("Register/Update Profile", createRegistrationPanel());
-        
-
+        tabbedPane.addTab("My Profile", createRegistrationPanel());
         tabbedPane.addTab("Book Appointment", createAppointmentPanel());
-        
-
-        tabbedPane.addTab("View EHR", createEHRPanel());
-        
-
+        tabbedPane.addTab("View My EHR", createEHRPanel());
         tabbedPane.addTab("Provide Feedback", createFeedbackPanel());
-        
-
         tabbedPane.addTab("My Appointments", createAppointmentsListPanel());
 
         add(tabbedPane, BorderLayout.CENTER);
         
-
         JButton backBtn = new JButton("Back to Main Menu");
         backBtn.addActionListener(e -> {
             JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
@@ -74,61 +114,29 @@ public class PatientPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.anchor = GridBagConstraints.WEST;
 
-
+        // Display current patient info (read-only)
         gbc.gridx = 0; gbc.gridy = 0;
-        panel.add(new JLabel("Select Patient (for update):"), gbc);
+        panel.add(new JLabel("Patient ID:"), gbc);
         gbc.gridx = 1;
-        JComboBox<Patient> patientCombo = new JComboBox<>();
-        patientCombo.addItem(null); // Add null option for new registration
-        try {
-            List<Patient> patients = dataManager.getAllPatients();
-            for (Patient p : patients) {
-                patientCombo.addItem(p);
-            }
-        } catch (Exception ex) {
-
-        }
-        patientCombo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                    boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value == null) {
-                    setText("-- New Patient --");
-                } else if (value instanceof Patient) {
-                    setText(((Patient) value).getName());
-                }
-                return this;
-            }
-        });
-        patientCombo.addActionListener(e -> {
-            Patient selected = (Patient) patientCombo.getSelectedItem();
-            if (selected != null) {
-                nameField.setText(selected.getName());
-                contactField.setText(selected.getContactInfo());
-                medicalHistoryField.setText(selected.getMedicalHistory());
-            } else {
-                nameField.setText("");
-                contactField.setText("");
-                medicalHistoryField.setText("");
-            }
-        });
-        panel.add(patientCombo, gbc);
+        JLabel patientIDLabel = new JLabel(currentPatient.getUserID());
+        patientIDLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        panel.add(patientIDLabel, gbc);
 
 
+        // Pre-populate with current patient data
         gbc.gridx = 0; gbc.gridy = 1;
         panel.add(new JLabel("Name:"), gbc);
         gbc.gridx = 1;
         nameField = new JTextField(20);
+        nameField.setText(currentPatient.getName());
         panel.add(nameField, gbc);
-
 
         gbc.gridx = 0; gbc.gridy = 2;
         panel.add(new JLabel("Contact Info:"), gbc);
         gbc.gridx = 1;
         contactField = new JTextField(20);
+        contactField.setText(currentPatient.getContactInfo() != null ? currentPatient.getContactInfo() : "");
         panel.add(contactField, gbc);
-
 
         gbc.gridx = 0; gbc.gridy = 3;
         panel.add(new JLabel("Medical History:"), gbc);
@@ -136,36 +144,16 @@ public class PatientPanel extends JPanel {
         medicalHistoryField = new JTextArea(5, 20);
         medicalHistoryField.setLineWrap(true);
         medicalHistoryField.setWrapStyleWord(true);
+        medicalHistoryField.setText(currentPatient.getMedicalHistory() != null ? currentPatient.getMedicalHistory() : "");
         JScrollPane medicalHistoryScroll = new JScrollPane(medicalHistoryField);
         panel.add(medicalHistoryScroll, gbc);
 
-
         gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
-        JPanel buttonPanel = new JPanel(new FlowLayout());
-        
-        JButton registerBtn = new JButton("Register New Patient");
-        registerBtn.addActionListener(e -> {
-            Patient selected = (Patient) patientCombo.getSelectedItem();
-            if (selected == null) {
-                registerPatient(patientCombo);
-            } else {
-                JOptionPane.showMessageDialog(this, "Please select '-- New Patient --' to register a new patient!");
-            }
-        });
-        buttonPanel.add(registerBtn);
-
-        JButton updateBtn = new JButton("Update Profile");
+        JButton updateBtn = new JButton("Update My Profile");
         updateBtn.addActionListener(e -> {
-            Patient selected = (Patient) patientCombo.getSelectedItem();
-            if (selected != null) {
-                updatePatient(selected, patientCombo);
-            } else {
-                JOptionPane.showMessageDialog(this, "Please select a patient to update!");
-            }
+            updatePatient(currentPatient);
         });
-        buttonPanel.add(updateBtn);
-
-        panel.add(buttonPanel, gbc);
+        panel.add(updateBtn, gbc);
 
         return panel;
     }
@@ -176,32 +164,13 @@ public class PatientPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.anchor = GridBagConstraints.WEST;
 
-
+        // Display current patient (read-only) for appointment booking
         gbc.gridx = 0; gbc.gridy = 0;
         panel.add(new JLabel("Patient:"), gbc);
         gbc.gridx = 1;
-        JComboBox<Patient> patientCombo = new JComboBox<>();
-        try {
-            List<Patient> patients = dataManager.getAllPatients();
-            for (Patient p : patients) {
-                patientCombo.addItem(p);
-            }
-        } catch (Exception ex) {
-
-        }
-        patientCombo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                    boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof Patient) {
-                    setText(((Patient) value).getName());
-                }
-                return this;
-            }
-        });
-        panel.add(patientCombo, gbc);
-
+        JLabel appointmentPatientLabel = new JLabel(currentPatient.getName() + " (ID: " + currentPatient.getUserID() + ")");
+        appointmentPatientLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        panel.add(appointmentPatientLabel, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1;
         panel.add(new JLabel("Date/Time:"), gbc);
@@ -351,7 +320,6 @@ public class PatientPanel extends JPanel {
         JButton bookBtn = new JButton("Book Appointment");
         bookBtn.addActionListener(e -> {
             try {
-                Patient patient = (Patient) patientCombo.getSelectedItem();
                 Provider provider = (Provider) providerCombo.getSelectedItem();
                 
                 Integer day = (Integer) dayCombo.getSelectedItem();
@@ -360,7 +328,7 @@ public class PatientPanel extends JPanel {
                 Integer hour = (Integer) hourCombo.getSelectedItem();
                 Integer minute = (Integer) minuteCombo.getSelectedItem();
                 
-                if (patient == null || provider == null || day == null || month == null || 
+                if (provider == null || day == null || month == null || 
                     year == null || hour == null || minute == null) {
                     JOptionPane.showMessageDialog(this, "Please fill in all fields!");
                     return;
@@ -370,13 +338,13 @@ public class PatientPanel extends JPanel {
                 String dateTime = String.format("%02d/%02d/%04d %02d:%02d", day, month, year, hour, minute);
                 
                 String appointmentID = dataManager.generateAppointmentID();
-                Appointment appointment = patient.bookAppointment(
+                Appointment appointment = currentPatient.bookAppointment(
                     appointmentID,
                     dateTime,
                     provider
                 );
                 dataManager.saveAppointment(appointment);
-                dataManager.savePatient(patient);
+                dataManager.savePatient(currentPatient);
                 JOptionPane.showMessageDialog(this, "Appointment booked successfully! ID: " + appointmentID);
                 
                 // Reset dropdowns
@@ -400,30 +368,13 @@ public class PatientPanel extends JPanel {
         gbc.insets = new Insets(5, 5, 5, 5);
         gbc.anchor = GridBagConstraints.WEST;
 
+        // Display current patient (read-only)
         gbc.gridx = 0; gbc.gridy = 0;
         panel.add(new JLabel("Patient:"), gbc);
         gbc.gridx = 1;
-        JComboBox<Patient> patientCombo = new JComboBox<>();
-        try {
-            List<Patient> patients = dataManager.getAllPatients();
-            for (Patient p : patients) {
-                patientCombo.addItem(p);
-            }
-        } catch (Exception ex) {
-
-        }
-        patientCombo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                    boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof Patient) {
-                    setText(((Patient) value).getName());
-                }
-                return this;
-            }
-        });
-        panel.add(patientCombo, gbc);
+        JLabel ehrPatientLabel = new JLabel(currentPatient.getName() + " (ID: " + currentPatient.getUserID() + ")");
+        ehrPatientLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        panel.add(ehrPatientLabel, gbc);
 
         JTextArea ehrDisplay = new JTextArea(15, 50);
         ehrDisplay.setEditable(false);
@@ -433,23 +384,27 @@ public class PatientPanel extends JPanel {
         panel.add(scrollPane, gbc);
 
         gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
-        JButton viewBtn = new JButton("View EHR");
-        patientCombo.addActionListener(e -> {
-            ehrDisplay.setText("");
-        });
+        JButton viewBtn = new JButton("View My EHR");
+        
+        // Auto-load EHR on panel display
+        try {
+            EHR ehr = dataManager.loadEHR("EHR-" + currentPatient.getUserID());
+            if (ehr != null) {
+                ehrDisplay.setText(ehr.getRecord());
+            } else {
+                ehrDisplay.setText("No EHR found for you. Your EHR will be created when a provider issues a prescription.");
+            }
+        } catch (Exception ex) {
+            ehrDisplay.setText("Error loading EHR: " + ex.getMessage());
+        }
         
         viewBtn.addActionListener(e -> {
             try {
-                Patient patient = (Patient) patientCombo.getSelectedItem();
-                if (patient != null) {
-                    EHR ehr = dataManager.loadEHR("EHR-" + patient.getUserID());
-                    if (ehr != null) {
-                        ehrDisplay.setText(ehr.getRecord());
-                    } else {
-                        ehrDisplay.setText("No EHR found for patient: " + patient.getName());
-                    }
+                EHR ehr = dataManager.loadEHR("EHR-" + currentPatient.getUserID());
+                if (ehr != null) {
+                    ehrDisplay.setText(ehr.getRecord());
                 } else {
-                    ehrDisplay.setText("Please select a patient!");
+                    ehrDisplay.setText("No EHR found for you. Your EHR will be created when a provider issues a prescription.");
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
@@ -467,31 +422,13 @@ public class PatientPanel extends JPanel {
         gbc.anchor = GridBagConstraints.WEST;
 
 
+        // Display current patient (read-only)
         gbc.gridx = 0; gbc.gridy = 0;
         panel.add(new JLabel("Patient:"), gbc);
         gbc.gridx = 1;
-        JComboBox<Patient> patientCombo = new JComboBox<>();
-        try {
-            List<Patient> patients = dataManager.getAllPatients();
-            for (Patient p : patients) {
-                patientCombo.addItem(p);
-            }
-        } catch (Exception ex) {
-
-        }
-        patientCombo.setRenderer(new DefaultListCellRenderer() {
-            @Override
-            public Component getListCellRendererComponent(JList<?> list, Object value, int index,
-                    boolean isSelected, boolean cellHasFocus) {
-                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                if (value instanceof Patient) {
-                    setText(((Patient) value).getName());
-                }
-                return this;
-            }
-        });
-        panel.add(patientCombo, gbc);
-
+        JLabel feedbackPatientLabel = new JLabel(currentPatient.getName() + " (ID: " + currentPatient.getUserID() + ")");
+        feedbackPatientLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        panel.add(feedbackPatientLabel, gbc);
 
         gbc.gridx = 0; gbc.gridy = 1;
         panel.add(new JLabel("Rating (1-5):"), gbc);
@@ -531,12 +468,6 @@ public class PatientPanel extends JPanel {
         JButton submitBtn = new JButton("Submit Feedback");
         submitBtn.addActionListener(e -> {
             try {
-                Patient patient = (Patient) patientCombo.getSelectedItem();
-                if (patient == null) {
-                    JOptionPane.showMessageDialog(this, "Please select a patient!");
-                    return;
-                }
-                
                 Integer rating = (Integer) ratingField.getSelectedItem();
                 if (rating == null) {
                     JOptionPane.showMessageDialog(this, "Please select a rating!");
@@ -544,13 +475,13 @@ public class PatientPanel extends JPanel {
                 }
                 
                 String feedbackID = dataManager.generateFeedbackID();
-                Feedback feedback = patient.provideFeedback(
+                Feedback feedback = currentPatient.provideFeedback(
                     feedbackID,
                     rating,
                     commentField.getText()
                 );
                 dataManager.saveFeedback(feedback);
-                dataManager.savePatient(patient);
+                dataManager.savePatient(currentPatient);
                 JOptionPane.showMessageDialog(this, "Feedback submitted successfully!");
                 ratingField.setSelectedItem(null);
                 commentField.setText("");
@@ -574,21 +505,11 @@ public class PatientPanel extends JPanel {
         JPanel buttonPanel = new JPanel(new FlowLayout());
         JButton refreshBtn = new JButton("Refresh Appointments");
         refreshBtn.addActionListener(e -> {
-            try {
-                List<Appointment> appointments = dataManager.getAllAppointments();
-                tableModel.setRowCount(0);
-                for (Appointment apt : appointments) {
-                    tableModel.addRow(new Object[]{
-                        apt.getAppointmentID(),
-                        apt.getDateTime(),
-                        apt.getStatus(),
-                        apt.getProvider() != null ? apt.getProvider().getName() : "N/A"
-                    });
-                }
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-            }
+            refreshAppointmentsTable();
         });
+        
+        // Initial load
+        refreshAppointmentsTable();
         buttonPanel.add(refreshBtn);
 
         JButton deleteBtn = new JButton("Delete Selected Appointment");
@@ -610,19 +531,15 @@ public class PatientPanel extends JPanel {
             
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
-                    dataManager.deleteAppointment(appointmentID);
-                    JOptionPane.showMessageDialog(this, "Appointment deleted successfully!");
-                    
-                    // Refresh the table
-                    List<Appointment> appointments = dataManager.getAllAppointments();
-                    tableModel.setRowCount(0);
-                    for (Appointment apt : appointments) {
-                        tableModel.addRow(new Object[]{
-                            apt.getAppointmentID(),
-                            apt.getDateTime(),
-                            apt.getStatus(),
-                            apt.getProvider() != null ? apt.getProvider().getName() : "N/A"
-                        });
+                    // Verify the appointment belongs to current patient
+                    Appointment apt = dataManager.loadAppointment(appointmentID);
+                    if (apt != null && apt.getPatient() != null && 
+                        apt.getPatient().getUserID().equals(currentPatient.getUserID())) {
+                        dataManager.deleteAppointment(appointmentID);
+                        JOptionPane.showMessageDialog(this, "Appointment deleted successfully!");
+                        refreshAppointmentsTable();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Unauthorized: This appointment does not belong to you.");
                     }
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Error deleting appointment: " + ex.getMessage());
@@ -638,56 +555,54 @@ public class PatientPanel extends JPanel {
         return panel;
     }
 
-    private void registerPatient(JComboBox<Patient> patientCombo) {
+
+    /**
+     * Updates the current patient's profile
+     */
+    private void updatePatient(Patient patient) {
         try {
-            if (nameField.getText().isEmpty()) {
+            if (patient == null || !patient.getUserID().equals(currentPatient.getUserID())) {
+                JOptionPane.showMessageDialog(this, "Unauthorized: You can only update your own profile.");
+                return;
+            }
+            
+            if (nameField.getText().trim().isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Please enter a name!");
                 return;
             }
-            String patientID = dataManager.generatePatientID();
-            Patient patient = new Patient(
-                patientID,
-                nameField.getText(),
-                contactField.getText(),
-                medicalHistoryField.getText()
-            );
-            patient.register();
-            dataManager.savePatient(patient);
-            JOptionPane.showMessageDialog(this, "Patient registered successfully! ID: " + patientID);
-            nameField.setText("");
-            contactField.setText("");
-            medicalHistoryField.setText("");
-
-            patientCombo.removeAllItems();
-            patientCombo.addItem(null);
-            List<Patient> patients = dataManager.getAllPatients();
-            for (Patient p : patients) {
-                patientCombo.addItem(p);
-            }
-            patientCombo.setSelectedItem(null);
+            
+            currentPatient.setName(nameField.getText().trim());
+            currentPatient.updateProfile(contactField.getText(), medicalHistoryField.getText());
+            dataManager.savePatient(currentPatient);
+            JOptionPane.showMessageDialog(this, "Profile updated successfully!");
+            
+            // Reload patient data to refresh UI
+            loadCurrentPatient();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
         }
     }
-
-    private void updatePatient(Patient patient, JComboBox<Patient> patientCombo) {
+    
+    /**
+     * Refreshes the appointments table with only current patient's appointments
+     */
+    private void refreshAppointmentsTable() {
         try {
-            if (patient != null) {
-                patient.setName(nameField.getText());
-                patient.updateProfile(contactField.getText(), medicalHistoryField.getText());
-                dataManager.savePatient(patient);
-                JOptionPane.showMessageDialog(this, "Profile updated successfully!");
-
-                patientCombo.removeAllItems();
-                patientCombo.addItem(null);
-                List<Patient> patients = dataManager.getAllPatients();
-                for (Patient p : patients) {
-                    patientCombo.addItem(p);
+            List<Appointment> appointments = dataManager.getAllAppointments();
+            tableModel.setRowCount(0);
+            for (Appointment apt : appointments) {
+                // Only show appointments belonging to current patient
+                if (apt.getPatient() != null && apt.getPatient().getUserID().equals(currentPatient.getUserID())) {
+                    tableModel.addRow(new Object[]{
+                        apt.getAppointmentID(),
+                        apt.getDateTime(),
+                        apt.getStatus(),
+                        apt.getProvider() != null ? apt.getProvider().getName() : "N/A"
+                    });
                 }
-                patientCombo.setSelectedItem(patient);
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
     }
 }

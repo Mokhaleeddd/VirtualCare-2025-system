@@ -19,6 +19,13 @@ public class Provider extends User implements Serializable {
         this.appointments = new ArrayList<>();
     }
 
+    public Provider(String providerID, String name, String specialty, String availability, String password) {
+        super(providerID, name, password);
+        this.specialty = specialty;
+        this.availability = availability;
+        this.appointments = new ArrayList<>();
+    }
+
     public void manageSchedule() {
         System.out.println("Provider " + this.name + " is managing schedule.");
     }

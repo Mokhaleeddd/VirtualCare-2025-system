@@ -2,6 +2,7 @@ package virtualcare.gui;
 
 import virtualcare.model.*;
 import virtualcare.service.DataManager;
+import virtualcare.service.AuthenticationService;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -11,14 +12,28 @@ import java.util.List;
 
 public class ProviderPanel extends JPanel {
     private DataManager dataManager;
+    private AuthenticationService authService;
     private JTable appointmentTable;
     private DefaultTableModel tableModel;
     private JTextField nameField, specialtyField, availabilityField;
     private JTextField medicationField, dosageField;
 
-    public ProviderPanel(DataManager dataManager) {
+    public ProviderPanel(DataManager dataManager, AuthenticationService authService) {
         this.dataManager = dataManager;
+        this.authService = authService;
         initializePanel();
+    }
+    
+    /**
+     * Refreshes the panel - reloads provider data
+     * Call this when switching to this panel after login
+     */
+    public void refreshPanel() {
+        // Remove all components and reinitialize
+        removeAll();
+        initializePanel();
+        revalidate();
+        repaint();
     }
 
     private void initializePanel() {
@@ -62,11 +77,18 @@ public class ProviderPanel extends JPanel {
         JComboBox<Provider> providerCombo = new JComboBox<>();
         try {
             List<Provider> providers = dataManager.getAllProviders();
-            for (Provider p : providers) {
-                providerCombo.addItem(p);
+            if (providers == null || providers.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No providers found in the system.");
+            } else {
+                for (Provider p : providers) {
+                    if (p != null) {
+                        providerCombo.addItem(p);
+                    }
+                }
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error loading providers: " + ex.getMessage());
+            ex.printStackTrace();
         }
         providerCombo.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -175,11 +197,18 @@ public class ProviderPanel extends JPanel {
         JComboBox<Provider> providerCombo = new JComboBox<>();
         try {
             List<Provider> providers = dataManager.getAllProviders();
-            for (Provider p : providers) {
-                providerCombo.addItem(p);
+            if (providers == null || providers.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No providers found in the system.");
+            } else {
+                for (Provider p : providers) {
+                    if (p != null) {
+                        providerCombo.addItem(p);
+                    }
+                }
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error loading providers: " + ex.getMessage());
+            ex.printStackTrace();
         }
         providerCombo.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -293,11 +322,18 @@ public class ProviderPanel extends JPanel {
         JComboBox<Provider> providerCombo = new JComboBox<>();
         try {
             List<Provider> providers = dataManager.getAllProviders();
-            for (Provider p : providers) {
-                providerCombo.addItem(p);
+            if (providers == null || providers.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "No providers found in the system.");
+            } else {
+                for (Provider p : providers) {
+                    if (p != null) {
+                        providerCombo.addItem(p);
+                    }
+                }
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error loading providers: " + ex.getMessage());
+            ex.printStackTrace();
         }
         providerCombo.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -428,11 +464,16 @@ public class ProviderPanel extends JPanel {
         providerFilterCombo.addItem(null); // Option to show all
         try {
             List<Provider> providers = dataManager.getAllProviders();
-            for (Provider p : providers) {
-                providerFilterCombo.addItem(p);
+            if (providers != null && !providers.isEmpty()) {
+                for (Provider p : providers) {
+                    if (p != null) {
+                        providerFilterCombo.addItem(p);
+                    }
+                }
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error loading providers: " + ex.getMessage());
+            ex.printStackTrace();
         }
         providerFilterCombo.setRenderer(new DefaultListCellRenderer() {
             @Override

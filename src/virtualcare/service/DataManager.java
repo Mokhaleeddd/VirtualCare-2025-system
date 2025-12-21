@@ -52,6 +52,50 @@ public class DataManager {
         
 
         loadCounters();
+        initializeDefaultAccounts();
+    }
+    
+    /**
+     * Initializes default admin and provider accounts if they don't exist
+     * Creates:
+     * - Main Admin: ADM1 / admin123
+     * - Main Provider: PROV1 / provider123
+     */
+    private void initializeDefaultAccounts() {
+        try {
+            loadAllAdmins();
+            loadAllProviders();
+            
+            // Check if main admin exists
+            if (!admins.containsKey("ADM1")) {
+                Admin mainAdmin = new Admin("ADM1", "Main Admin", "admin123");
+                admins.put("ADM1", mainAdmin);
+                saveAllAdmins();
+                System.out.println("Default admin account created: ADM1 / admin123");
+            }
+            
+            // Check if main provider exists
+            if (!providers.containsKey("PROV1")) {
+                Admin mainAdmin = admins.get("ADM1");
+                if (mainAdmin == null) {
+                    mainAdmin = new Admin("ADM1", "Main Admin", "admin123");
+                    admins.put("ADM1", mainAdmin);
+                    saveAllAdmins();
+                }
+                
+                Provider mainProvider = new Provider("PROV1", "Dr. Main Provider", "General Practice", "Monday-Friday 9AM-5PM", "provider123");
+                mainProvider.setManagedBy(mainAdmin);
+                mainAdmin.addProvider(mainProvider);
+                providers.put("PROV1", mainProvider);
+                saveAllProviders();
+                saveAllAdmins();
+                System.out.println("Default provider account created: PROV1 / provider123");
+            }
+        } catch (Exception e) {
+            // Silently handle errors - accounts may already exist
+            System.err.println("Error initializing default accounts: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
 
